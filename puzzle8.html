@@ -176,7 +176,6 @@
                 timerDisplay.textContent = `Tempo: ${formatTime(getElapsedTime())}`;
                 bestTimeDisplay.textContent = `Melhor Tempo: ${bestTime}`;
 
-                // Atualiza a cor das peças
                 tiles.forEach((tile, index) => {
                     const correctValue = goalState[index];
                     if (boardState[index] === correctValue) {
@@ -221,7 +220,6 @@
 
             function checkGoalState() {
                 if (boardState.join(',') === goalState.join(',')) {
-                    // Adiciona um atraso de 200ms para garantir que o último movimento foi registrado
                     setTimeout(() => {
                         alert(`Você resolveu o puzzle em ${moveCount} jogadas!`);
                         stopTimer();
@@ -308,10 +306,9 @@
                     moveCount++;
                     updateDisplay();
 
-                    // Verifique se o puzzle foi resolvido apenas após a atualização do display
                     setTimeout(() => {
                         checkGoalState();
-                    }, 200); // Ajuste o atraso conforme necessário
+                    }, 200);
                 }
             }
         });
