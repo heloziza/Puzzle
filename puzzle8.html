@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -50,6 +50,11 @@
             box-shadow: none;
         }
 
+        .correct {
+            background-color: #0065b3;
+            color: #ffffff;
+        }
+
         .board-state {
             margin-top: 20px;
             font-size: 18px;
@@ -63,12 +68,18 @@
             color: #555;
         }
 
+        .move-count {
+            margin-top: 10px;
+            font-size: 16px;
+            color: #555;
+        }
+
         .shuffle-button {
             margin-top: 20px;
             padding: 10px 20px;
             font-size: 16px;
             cursor: pointer;
-            background-color: #4CAF50;
+            background-color: #0065b3;
             color: white;
             border: none;
             border-radius: 5px;
@@ -77,13 +88,20 @@
         }
 
         .shuffle-button:hover {
-            background-color: #45a049;
+            background-color: #0065b39e;
         }
 
-        .move-count {
+        .timer {
             margin-top: 10px;
-            font-size: 16px;
-            color: #555;
+            font-size: 18px;
+            color: #333;
+        }
+
+        .best-time {
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
         }
     </style>
 </head>
@@ -111,6 +129,12 @@
     <div class="move-count" id="moveCount">
         Número de jogadas: 0
     </div>
+    <div class="timer" id="timer">
+        Tempo: 00:00
+    </div>
+    <div class="best-time" id="bestTime">
+        Melhor Tempo: 00:00
+    </div>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const tiles = document.querySelectorAll('.tile');
@@ -119,12 +143,15 @@
             const inversionsDisplay = document.getElementById('inversionsCount');
             const moveCountDisplay = document.getElementById('moveCount');
             const shuffleButton = document.getElementById('shuffleButton');
+            const timerDisplay = document.getElementById('timer');
+            const bestTimeDisplay = document.getElementById('bestTime');
 
             const goalState = [1, 2, 3, 4, 5, 6, 7, 8, 0];
             let moveCount = 0;
-
-            // Inicializa o estado do tabuleiro
-            let boardState = Array.from(tiles).map(tile => parseInt(tile.dataset.value));
+            let startTime = null;
+            let timerInterval = null;
+            let boardState = [];
+            let bestTime = localStorage.getItem('bestTime') || '00:00';
 
             function calculateInversions(state) {
                 let inversions = 0;
@@ -139,33 +166,77 @@
             }
 
             function updateDisplay() {
-                // Exibe o estado do tabuleiro na página
                 boardStateDisplay.textContent = `Estado atual: [${boardState.join(', ')}]`;
 
-                // Calcula e exibe o número de inversões e a paridade
                 const inversions = calculateInversions(boardState);
                 const parity = inversions % 2 === 0 ? "par" : "ímpar";
                 inversionsDisplay.textContent = `Inversões: ${inversions} (Paridade: ${parity})`;
 
-                // Exibe o número de jogadas
                 moveCountDisplay.textContent = `Número de jogadas: ${moveCount}`;
+                timerDisplay.textContent = `Tempo: ${formatTime(getElapsedTime())}`;
+                bestTimeDisplay.textContent = `Melhor Tempo: ${bestTime}`;
+
+                // Atualiza a cor das peças
+                tiles.forEach((tile, index) => {
+                    const correctValue = goalState[index];
+                    if (boardState[index] === correctValue) {
+                        tile.classList.add('correct');
+                    } else {
+                        tile.classList.remove('correct');
+                    }
+                });
+            }
+
+            function formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            }
+
+            function getElapsedTime() {
+                if (!startTime) return 0;
+                return Math.floor((Date.now() - startTime) / 1000);
+            }
+
+            function startTimer() {
+                startTime = Date.now();
+                timerInterval = setInterval(() => {
+                    timerDisplay.textContent = `Tempo: ${formatTime(getElapsedTime())}`;
+                }, 1000);
+            }
+
+            function stopTimer() {
+                clearInterval(timerInterval);
+                const currentTime = formatTime(getElapsedTime());
+                if (bestTime === '00:00' || getElapsedTime() < timeToSeconds(bestTime)) {
+                    bestTime = currentTime;
+                    localStorage.setItem('bestTime', bestTime);
+                }
+            }
+
+            function timeToSeconds(time) {
+                const [minutes, seconds] = time.split(':').map(Number);
+                return minutes * 60 + seconds;
             }
 
             function checkGoalState() {
                 if (boardState.join(',') === goalState.join(',')) {
-                    alert(`Você resolveu o puzzle em ${moveCount} jogadas!`);
+                    // Adiciona um atraso de 200ms para garantir que o último movimento foi registrado
+                    setTimeout(() => {
+                        alert(`Você resolveu o puzzle em ${moveCount} jogadas!`);
+                        stopTimer();
+                    }, 200);
                 }
             }
 
             function shuffleBoard() {
-                // Embaralha o estado do tabuleiro
                 do {
-                    boardState = boardState.sort(() => Math.random() - 0.5);
-                } while (calculateInversions(boardState) % 2 !== 0); // Garante que o estado seja resolvível
+                    boardState = [...goalState].sort(() => Math.random() - 0.5);
+                } while (calculateInversions(boardState) % 2 !== 0); 
 
-                moveCount = 0; // Reseta o contador de jogadas
-
-                // Atualiza o conteúdo visual
+                moveCount = 0;
+                startTime = null;
+                clearInterval(timerInterval);
                 tiles.forEach((tile, index) => {
                     tile.textContent = boardState[index] === 0 ? "" : boardState[index];
                     tile.dataset.value = boardState[index];
@@ -177,15 +248,31 @@
                     }
                 });
 
-                // Atualiza as exibições
                 updateDisplay();
             }
 
-            updateDisplay(); // Atualiza a exibição inicialmente
+            function initializeBoard() {
+                boardState = [...goalState];
+                tiles.forEach((tile, index) => {
+                    tile.textContent = boardState[index] === 0 ? "" : boardState[index];
+                    tile.dataset.value = boardState[index];
 
+                    if (boardState[index] === 0) {
+                        tile.classList.add('empty');
+                    } else {
+                        tile.classList.remove('empty');
+                    }
+                });
+
+                updateDisplay();
+            }
+
+            initializeBoard();
+            
             grid.addEventListener('click', (e) => {
                 const tile = e.target;
                 if (tile.classList.contains('tile')) {
+                    if (!startTime) startTimer();
                     moveTile(tile);
                 }
             });
@@ -197,7 +284,6 @@
                 const tileIndex = Array.from(tiles).indexOf(tile);
                 const emptyTileIndex = Array.from(tiles).indexOf(emptyTile);
 
-                // Define movimentos válidos (esquerda, direita, cima, baixo)
                 const validMoves = {
                     0: [1, 3],
                     1: [0, 2, 4],
@@ -211,25 +297,21 @@
                 };
 
                 if (validMoves[emptyTileIndex].includes(tileIndex)) {
-                    // Troca de posição entre a peça clicada e a peça vazia
                     [boardState[tileIndex], boardState[emptyTileIndex]] = [boardState[emptyTileIndex], boardState[tileIndex]];
 
-                    // Atualiza o conteúdo visual
                     tile.textContent = boardState[tileIndex] === 0 ? "" : boardState[tileIndex];
                     emptyTile.textContent = boardState[emptyTileIndex] === 0 ? "" : boardState[emptyTileIndex];
 
-                    // Troca as classes para manter a peça vazia correta
                     tile.classList.add('empty');
                     emptyTile.classList.remove('empty');
 
-                    // Incrementa o contador de jogadas
                     moveCount++;
-
-                    // Atualiza as exibições
                     updateDisplay();
 
-                    // Verifica se o estado meta foi alcançado
-                    checkGoalState();
+                    // Verifique se o puzzle foi resolvido apenas após a atualização do display
+                    setTimeout(() => {
+                        checkGoalState();
+                    }, 200); // Ajuste o atraso conforme necessário
                 }
             }
         });
